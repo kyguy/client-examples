@@ -33,12 +33,14 @@ public class KafkaStreamsConfig {
     private final String oauthTokenEndpointUri;
     private final String additionalConfig;
     private final String saslLoginCallbackClass = "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler";
+    private final String tracingSystem;
+    private static final String DEFAULT_TRACING_SYSTEM = null;
 
 
     public KafkaStreamsConfig(String bootstrapServers, String applicationId, String sourceTopic, String targetTopic,
                               int commitIntervalMs, String sslTruststoreCertificates, String sslKeystoreKey, String sslKeystoreCertificateChain,
                               String oauthClientId, String oauthClientSecret, String oauthAccessToken, String oauthRefreshToken,
-                              String oauthTokenEndpointUri, String additionalConfig) {
+                              String oauthTokenEndpointUri, String additionalConfig, String tracingSystem) {
         this.bootstrapServers = bootstrapServers;
         this.applicationId = applicationId;
         this.sourceTopic = sourceTopic;
@@ -53,6 +55,7 @@ public class KafkaStreamsConfig {
         this.oauthRefreshToken = oauthRefreshToken;
         this.oauthTokenEndpointUri = oauthTokenEndpointUri;
         this.additionalConfig = additionalConfig;
+        this.tracingSystem = tracingSystem;
     }
 
     public static KafkaStreamsConfig fromEnv() {
@@ -70,10 +73,11 @@ public class KafkaStreamsConfig {
         String oauthRefreshToken = System.getenv("OAUTH_REFRESH_TOKEN");
         String oauthTokenEndpointUri = System.getenv("OAUTH_TOKEN_ENDPOINT_URI");
         String additionalConfig = System.getenv().getOrDefault("ADDITIONAL_CONFIG", "");
+        String tracingSystem = System.getenv().getOrDefault("TRACING_SYSTEM", DEFAULT_TRACING_SYSTEM);
 
         return new KafkaStreamsConfig(bootstrapServers, applicationId, sourceTopic, targetTopic, commitIntervalMs,
                 sslTruststoreCertificates, sslKeystoreKey, sslKeystoreCertificateChain, oauthClientId, oauthClientSecret,
-                oauthAccessToken, oauthRefreshToken, oauthTokenEndpointUri, additionalConfig);
+                oauthAccessToken, oauthRefreshToken, oauthTokenEndpointUri, additionalConfig, tracingSystem);
     }
 
     public static Properties createProperties(KafkaStreamsConfig config) {
@@ -85,14 +89,14 @@ public class KafkaStreamsConfig {
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
-        if (config.getSslTruststoreCertificates() != null)   {
+        if (config.getSslTruststoreCertificates() != null)  {
             log.info("Configuring truststore");
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
             props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM");
             props.put(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG, config.getSslTruststoreCertificates());
         }
 
-        if (config.getSslKeystoreCertificateChain() != null && config.getSslKeystoreKey() != null)   {
+        if (config.getSslKeystoreCertificateChain() != null && config.getSslKeystoreKey() != null)  {
             log.info("Configuring keystore");
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL");
             props.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "PEM");
@@ -117,7 +121,7 @@ public class KafkaStreamsConfig {
 
         if ((config.getOauthAccessToken() != null)
                 || (config.getOauthTokenEndpointUri() != null && config.getOauthClientId() != null && config.getOauthRefreshToken() != null)
-                || (config.getOauthTokenEndpointUri() != null && config.getOauthClientId() != null && config.getOauthClientSecret() != null))    {
+                || (config.getOauthTokenEndpointUri() != null && config.getOauthClientId() != null && config.getOauthClientSecret() != null))   {
             log.info("Configuring OAuth");
             props.put(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required;");
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL".equals(props.getProperty(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG)) ? "SASL_SSL" : "SASL_PLAINTEXT");
@@ -187,6 +191,8 @@ public class KafkaStreamsConfig {
     public String getAdditionalConfig() {
         return additionalConfig;
     }
+
+    public String getTracingSystem() { return tracingSystem;  }
 
     @Override
     public String toString() {

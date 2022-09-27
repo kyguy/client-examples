@@ -5,7 +5,6 @@
 
 import io.jaegertracing.Configuration;
 import io.opentracing.Tracer;
-import io.opentracing.contrib.kafka.TracingConsumerInterceptor;
 import io.opentracing.util.GlobalTracer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -22,6 +21,22 @@ import java.util.Properties;
 public class KafkaConsumerExample {
     private static final Logger log = LogManager.getLogger(KafkaConsumerExample.class);
 
+    public enum TracingSystem {
+        JAEGER,
+        OPENTELEMETRY;
+
+        public static KafkaConsumerExample.TracingSystem forValue(String value) {
+            switch (value) {
+                case "jaeger":
+                    return KafkaConsumerExample.TracingSystem.JAEGER;
+                case "opentelemetry":
+                    return KafkaConsumerExample.TracingSystem.OPENTELEMETRY;
+                default:
+                    return null;
+            }
+        }
+    }
+
     public static void main(String[] args) {
         KafkaConsumerConfig config = KafkaConsumerConfig.fromEnv();
 
@@ -30,11 +45,21 @@ public class KafkaConsumerExample {
         Properties props = KafkaConsumerConfig.createProperties(config);
         int receivedMsgs = 0;
 
-        if (System.getenv("JAEGER_SERVICE_NAME") != null)   {
-            Tracer tracer = Configuration.fromEnv().getTracer();
-            GlobalTracer.registerIfAbsent(tracer);
+        TracingSystem tracingSystem;
+        tracingSystem = TracingSystem.forValue(config.getTracingSystem());
 
-            props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, TracingConsumerInterceptor.class.getName());
+        if (tracingSystem != null) {
+            if (tracingSystem == KafkaConsumerExample.TracingSystem.JAEGER) {
+                Tracer tracer = Configuration.fromEnv().getTracer();
+                GlobalTracer.registerIfAbsent(tracer);
+
+                props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentracing.contrib.kafka.TracingConsumerInterceptor.class.getName());
+            } else if (tracingSystem == KafkaConsumerExample.TracingSystem.OPENTELEMETRY) {
+
+                props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentelemetry.instrumentation.kafkaclients.TracingConsumerInterceptor.class.getName());
+            } else {
+                log.error("Error: TRACING_SYSTEM {} is not recognized or supported!", config.getTracingSystem());
+            }
         }
 
         boolean commit = !Boolean.parseBoolean(config.getEnableAutoCommit());

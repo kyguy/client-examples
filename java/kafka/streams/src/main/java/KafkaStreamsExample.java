@@ -7,6 +7,8 @@ import io.jaegertracing.Configuration;
 import io.opentracing.Tracer;
 import io.opentracing.contrib.kafka.streams.TracingKafkaClientSupplier;
 import io.opentracing.util.GlobalTracer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaClientSupplier;
 import org.apache.kafka.streams.KafkaStreams;
@@ -21,10 +23,26 @@ import java.util.Properties;
 public class KafkaStreamsExample {
     private static final Logger log = LogManager.getLogger(KafkaStreamsExample.class);
 
+    public enum TracingSystem {
+        JAEGER,
+        OPENTELEMETRY;
+
+        public static KafkaStreamsExample.TracingSystem forValue(String value) {
+            switch (value) {
+                case "jaeger":
+                    return KafkaStreamsExample.TracingSystem.JAEGER;
+                case "opentelemetry":
+                    return KafkaStreamsExample.TracingSystem.OPENTELEMETRY;
+                default:
+                    return null;
+            }
+        }
+    }
+
     public static void main(String[] args) {
         KafkaStreamsConfig config = KafkaStreamsConfig.fromEnv();
 
-        log.info(KafkaStreamsConfig.class.getName() + ": {}",  config.toString());
+        log.info(KafkaStreamsConfig.class.getName() + ": {}", config.toString());
 
         Properties props = KafkaStreamsConfig.createProperties(config);
 
@@ -40,12 +58,24 @@ public class KafkaStreamsExample {
 
         KafkaStreams streams;
 
-        if (System.getenv("JAEGER_SERVICE_NAME") != null)   {
-            Tracer tracer = Configuration.fromEnv().getTracer();
-            GlobalTracer.registerIfAbsent(tracer);
+        TracingSystem tracingSystem = TracingSystem.forValue(config.getTracingSystem());
+        if (tracingSystem != null) {
 
-            KafkaClientSupplier supplier = new TracingKafkaClientSupplier(tracer);
-            streams = new KafkaStreams(builder.build(), props, supplier);
+            if (tracingSystem == TracingSystem.JAEGER) {
+                Tracer tracer = Configuration.fromEnv().getTracer();
+                GlobalTracer.registerIfAbsent(tracer);
+
+                KafkaClientSupplier supplier = new TracingKafkaClientSupplier(tracer);
+                streams = new KafkaStreams(builder.build(), props, supplier);
+            } else if (tracingSystem == TracingSystem.OPENTELEMETRY) {
+
+                props.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentelemetry.instrumentation.kafkaclients.TracingProducerInterceptor.class.getName());
+                props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentelemetry.instrumentation.kafkaclients.TracingConsumerInterceptor.class.getName());
+                streams = new KafkaStreams(builder.build(), props);
+            } else {
+                log.error("Error: TRACING_SYSTEM {} is not recognized or supported!", config.getTracingSystem());
+                streams = new KafkaStreams(builder.build(), props);
+            }
         } else {
             streams = new KafkaStreams(builder.build(), props);
         }

@@ -5,7 +5,6 @@
 
 import io.jaegertracing.Configuration;
 import io.opentracing.Tracer;
-import io.opentracing.contrib.kafka.TracingProducerInterceptor;
 import io.opentracing.util.GlobalTracer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -26,6 +25,21 @@ import java.util.concurrent.atomic.AtomicLong;
 public class KafkaProducerExample {
     private static final Logger log = LogManager.getLogger(KafkaProducerExample.class);
 
+    public enum TracingSystem {
+        JAEGER,
+        OPENTELEMETRY;
+        public static TracingSystem forValue(String value) {
+            switch (value) {
+                case "jaeger":
+                    return TracingSystem.JAEGER;
+                case "opentelemetry":
+                    return TracingSystem.OPENTELEMETRY;
+                default:
+                    return null;
+            }
+        }
+    }
+
     public static void main(String[] args) throws InterruptedException {
         KafkaProducerConfig config = KafkaProducerConfig.fromEnv();
 
@@ -34,11 +48,20 @@ public class KafkaProducerExample {
         Properties props = KafkaProducerConfig.createProperties(config);
         List<Header> headers = null;
 
-        if (System.getenv("JAEGER_SERVICE_NAME") != null)   {
-            Tracer tracer = Configuration.fromEnv().getTracer();
-            GlobalTracer.registerIfAbsent(tracer);
+        TracingSystem tracingSystem = TracingSystem.forValue(config.getTracingSystem());
+        if (tracingSystem != null) {
 
-            props.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, TracingProducerInterceptor.class.getName());
+            if (tracingSystem == TracingSystem.JAEGER) {
+                Tracer tracer = Configuration.fromEnv().getTracer();
+                GlobalTracer.registerIfAbsent(tracer);
+
+                props.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentracing.contrib.kafka.TracingProducerInterceptor.class.getName());
+            } else if (tracingSystem == TracingSystem.OPENTELEMETRY) {
+
+                props.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentelemetry.instrumentation.kafkaclients.TracingProducerInterceptor.class.getName());
+            } else {
+                log.error("Error: TRACING_SYSTEM {} is not recognized or supported!", config.getTracingSystem());
+            }
         }
 
         if (config.getHeaders() != null) {
