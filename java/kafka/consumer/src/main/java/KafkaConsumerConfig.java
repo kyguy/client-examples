@@ -9,6 +9,7 @@ import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import strimzi.io.TracingSystem;
 
 import java.util.Properties;
 import java.util.StringTokenizer;
@@ -34,14 +35,13 @@ public class KafkaConsumerConfig {
     private final String oauthTokenEndpointUri;
     private final String additionalConfig;
     private final String saslLoginCallbackClass = "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler";
-    private final String tracingSystem;
-    private static final String DEFAULT_TRACING_SYSTEM = null;
+    private final TracingSystem tracingSystem;
 
 
     public KafkaConsumerConfig(String bootstrapServers, String topic, String groupId, String clientRack, Long messageCount,
                                String sslTruststoreCertificates, String sslKeystoreKey, String sslKeystoreCertificateChain,
                                String oauthClientId, String oauthClientSecret, String oauthAccessToken, String oauthRefreshToken,
-                               String oauthTokenEndpointUri, String additionalConfig, String tracingSystem) {
+                               String oauthTokenEndpointUri, String additionalConfig, TracingSystem tracingSystem) {
         this.bootstrapServers = bootstrapServers;
         this.topic = topic;
         this.groupId = groupId;
@@ -74,7 +74,7 @@ public class KafkaConsumerConfig {
         String oauthRefreshToken = System.getenv("OAUTH_REFRESH_TOKEN");
         String oauthTokenEndpointUri = System.getenv("OAUTH_TOKEN_ENDPOINT_URI");
         String additionalConfig = System.getenv().getOrDefault("ADDITIONAL_CONFIG", "");
-        String tracingSystem =  System.getenv().getOrDefault("TRACING_SYSTEM", DEFAULT_TRACING_SYSTEM);
+        TracingSystem tracingSystem = TracingSystem.forValue(System.getenv("TRACING_SYSTEM"));
 
         return new KafkaConsumerConfig(bootstrapServers, topic, groupId, clientRack, messageCount, sslTruststoreCertificates, sslKeystoreKey,
                 sslKeystoreCertificateChain, oauthClientId, oauthClientSecret, oauthAccessToken, oauthRefreshToken, oauthTokenEndpointUri,
@@ -205,7 +205,7 @@ public class KafkaConsumerConfig {
         return additionalConfig;
     }
 
-    public String getTracingSystem() { return tracingSystem; }
+    public TracingSystem getTracingSystem() { return tracingSystem; }
 
     @Override
     public String toString() {

@@ -9,6 +9,7 @@ import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import strimzi.io.TracingSystem;
 
 import java.util.Properties;
 import java.util.StringTokenizer;
@@ -35,13 +36,13 @@ public class KafkaProducerConfig {
     private final String oauthTokenEndpointUri;
     private final String additionalConfig;
     private final String saslLoginCallbackClass = "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler";
-    private final String tracingSystem;
+    private final TracingSystem tracingSystem;
     private static final String DEFAULT_TRACING_SYSTEM = null;
 
     public KafkaProducerConfig(String bootstrapServers, String topic, int delay, Long messageCount, String message,
                                String sslTruststoreCertificates, String sslKeystoreKey, String sslKeystoreCertificateChain,
                                String oauthClientId, String oauthClientSecret, String oauthAccessToken, String oauthRefreshToken,
-                               String oauthTokenEndpointUri, String acks, String additionalConfig, String headers, String tracingSystem) {
+                               String oauthTokenEndpointUri, String acks, String additionalConfig, String headers, TracingSystem tracingSystem) {
         this.bootstrapServers = bootstrapServers;
         this.topic = topic;
         this.delay = delay;
@@ -78,7 +79,7 @@ public class KafkaProducerConfig {
         String acks = System.getenv().getOrDefault("PRODUCER_ACKS", "1");
         String headers = System.getenv("HEADERS");
         String additionalConfig = System.getenv().getOrDefault("ADDITIONAL_CONFIG", "");
-        String tracingSystem =  System.getenv().getOrDefault("TRACING_SYSTEM", DEFAULT_TRACING_SYSTEM);
+        TracingSystem tracingSystem = TracingSystem.forValue(System.getenv("TRACING_SYSTEM"));
 
         return new KafkaProducerConfig(bootstrapServers, topic, delay, messageCount, message, sslTruststoreCertificates,
                 sslKeystoreKey, sslKeystoreCertificateChain, oauthClientId, oauthClientSecret, oauthAccessToken, oauthRefreshToken,
@@ -204,7 +205,7 @@ public class KafkaProducerConfig {
         return additionalConfig;
     }
 
-    public String getTracingSystem() {
+    public TracingSystem getTracingSystem() {
         return tracingSystem;
     }
 

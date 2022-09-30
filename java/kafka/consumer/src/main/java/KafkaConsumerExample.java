@@ -13,6 +13,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.header.Header;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import strimzi.io.TracingSystem;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -21,7 +22,7 @@ import java.util.Properties;
 public class KafkaConsumerExample {
     private static final Logger log = LogManager.getLogger(KafkaConsumerExample.class);
 
-    public enum TracingSystem {
+  /*  public enum TracingSystem {
         JAEGER,
         OPENTELEMETRY;
 
@@ -36,7 +37,7 @@ public class KafkaConsumerExample {
             }
         }
     }
-
+*/
     public static void main(String[] args) {
         KafkaConsumerConfig config = KafkaConsumerConfig.fromEnv();
 
@@ -45,16 +46,14 @@ public class KafkaConsumerExample {
         Properties props = KafkaConsumerConfig.createProperties(config);
         int receivedMsgs = 0;
 
-        TracingSystem tracingSystem;
-        tracingSystem = TracingSystem.forValue(config.getTracingSystem());
-
+        TracingSystem tracingSystem = config.getTracingSystem();
         if (tracingSystem != null) {
-            if (tracingSystem == KafkaConsumerExample.TracingSystem.JAEGER) {
+            if (tracingSystem == TracingSystem.JAEGER) {
                 Tracer tracer = Configuration.fromEnv().getTracer();
                 GlobalTracer.registerIfAbsent(tracer);
 
                 props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentracing.contrib.kafka.TracingConsumerInterceptor.class.getName());
-            } else if (tracingSystem == KafkaConsumerExample.TracingSystem.OPENTELEMETRY) {
+            } else if (tracingSystem == TracingSystem.OPENTELEMETRY) {
 
                 props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentelemetry.instrumentation.kafkaclients.TracingConsumerInterceptor.class.getName());
             } else {

@@ -15,5 +15,6 @@
 
     <modules>
         <module>kafka</module>
+        <module>kafka/common</module>
     </modules>
 </project>

@@ -14,6 +14,7 @@ import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import strimzi.io.TracingSystem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,21 +26,6 @@ import java.util.concurrent.atomic.AtomicLong;
 public class KafkaProducerExample {
     private static final Logger log = LogManager.getLogger(KafkaProducerExample.class);
 
-    public enum TracingSystem {
-        JAEGER,
-        OPENTELEMETRY;
-        public static TracingSystem forValue(String value) {
-            switch (value) {
-                case "jaeger":
-                    return TracingSystem.JAEGER;
-                case "opentelemetry":
-                    return TracingSystem.OPENTELEMETRY;
-                default:
-                    return null;
-            }
-        }
-    }
-
     public static void main(String[] args) throws InterruptedException {
         KafkaProducerConfig config = KafkaProducerConfig.fromEnv();
 
@@ -48,7 +34,7 @@ public class KafkaProducerExample {
         Properties props = KafkaProducerConfig.createProperties(config);
         List<Header> headers = null;
 
-        TracingSystem tracingSystem = TracingSystem.forValue(config.getTracingSystem());
+        TracingSystem tracingSystem = config.getTracingSystem();
         if (tracingSystem != null) {
 
             if (tracingSystem == TracingSystem.JAEGER) {
