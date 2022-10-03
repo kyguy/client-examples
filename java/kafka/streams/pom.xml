@@ -54,7 +54,6 @@
             <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-kafka-clients-2.6</artifactId>
             <version>${opentelemetry-alpha.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>io.opentelemetry</groupId>
@@ -69,7 +68,6 @@
             <groupId>strimzi.io</groupId>
             <artifactId>common</artifactId>
             <version>1.0-SNAPSHOT</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
     <build>
