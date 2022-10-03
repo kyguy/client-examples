@@ -17,27 +17,12 @@ import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import strimzi.io.TracingSystem;
 
 import java.util.Properties;
 
 public class KafkaStreamsExample {
     private static final Logger log = LogManager.getLogger(KafkaStreamsExample.class);
-
-    public enum TracingSystem {
-        JAEGER,
-        OPENTELEMETRY;
-
-        public static KafkaStreamsExample.TracingSystem forValue(String value) {
-            switch (value) {
-                case "jaeger":
-                    return KafkaStreamsExample.TracingSystem.JAEGER;
-                case "opentelemetry":
-                    return KafkaStreamsExample.TracingSystem.OPENTELEMETRY;
-                default:
-                    return null;
-            }
-        }
-    }
 
     public static void main(String[] args) {
         KafkaStreamsConfig config = KafkaStreamsConfig.fromEnv();
@@ -58,7 +43,7 @@ public class KafkaStreamsExample {
 
         KafkaStreams streams;
 
-        TracingSystem tracingSystem = TracingSystem.forValue(config.getTracingSystem());
+        TracingSystem tracingSystem = config.getTracingSystem();
         if (tracingSystem != null) {
 
             if (tracingSystem == TracingSystem.JAEGER) {
