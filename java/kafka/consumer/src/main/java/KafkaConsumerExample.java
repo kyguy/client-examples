@@ -22,22 +22,6 @@ import java.util.Properties;
 public class KafkaConsumerExample {
     private static final Logger log = LogManager.getLogger(KafkaConsumerExample.class);
 
-  /*  public enum TracingSystem {
-        JAEGER,
-        OPENTELEMETRY;
-
-        public static KafkaConsumerExample.TracingSystem forValue(String value) {
-            switch (value) {
-                case "jaeger":
-                    return KafkaConsumerExample.TracingSystem.JAEGER;
-                case "opentelemetry":
-                    return KafkaConsumerExample.TracingSystem.OPENTELEMETRY;
-                default:
-                    return null;
-            }
-        }
-    }
-*/
     public static void main(String[] args) {
         KafkaConsumerConfig config = KafkaConsumerConfig.fromEnv();
 
