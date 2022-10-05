@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: java-kafka-producer
-        image: docker.io/kliberti/java-kafka-producer:latest
+        image: quay.io/strimzi/java-kafka-producer:latest
         env:
           - name: BOOTSTRAP_SERVERS
             value: my-cluster-kafka-bootstrap:9092
@@ -85,7 +85,7 @@ spec:
     spec:
       containers:
         - name: java-kafka-streams
-          image: docker.io/kliberti/java-kafka-streams:latest
+          image: quay.io/strimzi/java-kafka-streams:latest
           env:
             - name: BOOTSTRAP_SERVERS
               value: my-cluster-kafka-bootstrap:9092
@@ -134,7 +134,7 @@ spec:
     spec:
       containers:
         - name: java-kafka-consumer
-          image: docker.io/kliberti/java-kafka-consumer:latest
+          image: quay.io/strimzi/java-kafka-consumer:latest
           env:
             - name: BOOTSTRAP_SERVERS
               value: my-cluster-kafka-bootstrap:9092
