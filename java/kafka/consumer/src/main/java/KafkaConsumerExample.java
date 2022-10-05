@@ -13,7 +13,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.header.Header;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import strimzi.io.TracingSystem;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -31,7 +30,7 @@ public class KafkaConsumerExample {
         int receivedMsgs = 0;
 
         TracingSystem tracingSystem = config.getTracingSystem();
-        if (tracingSystem != null) {
+        if (tracingSystem != TracingSystem.NONE) {
             if (tracingSystem == TracingSystem.JAEGER) {
                 Tracer tracer = Configuration.fromEnv().getTracer();
                 GlobalTracer.registerIfAbsent(tracer);

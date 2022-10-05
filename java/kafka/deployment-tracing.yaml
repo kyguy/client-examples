@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: java-kafka-producer
-        image: quay.io/strimzi-examples/java-kafka-producer:latest
+        image: docker.io/kliberti/java-kafka-producer:latest
         env:
           - name: BOOTSTRAP_SERVERS
             value: my-cluster-kafka-bootstrap:9092
@@ -56,8 +56,16 @@ spec:
             value: const
           - name: JAEGER_SAMPLER_PARAM
             value: "1"
+          - name: OTEL_SERVICE_NAME
+            value: kafka-otel
+          - name: OTEL_TRACES_EXPORTER
+            value: jaeger
+          - name: OTEL_METRICS_EXPORTER
+            value: none
+          - name: OTEL_EXPORTER_JAEGER_ENDPOINT
+            value: http://my-jaeger-collector:14250
           - name: TRACING_SYSTEM
-            value: "jaeger"
+            value: "opentelemetry"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -77,7 +85,7 @@ spec:
     spec:
       containers:
         - name: java-kafka-streams
-          image: quay.io/strimzi-examples/java-kafka-streams:latest
+          image: docker.io/kliberti/java-kafka-streams:latest
           env:
             - name: BOOTSTRAP_SERVERS
               value: my-cluster-kafka-bootstrap:9092
@@ -97,8 +105,16 @@ spec:
               value: const
             - name: JAEGER_SAMPLER_PARAM
               value: "1"
+            - name: OTEL_SERVICE_NAME
+              value: kafka-otel
+            - name: OTEL_TRACES_EXPORTER
+              value: jaeger
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_EXPORTER_JAEGER_ENDPOINT
+              value: http://my-jaeger-collector:14250
             - name: TRACING_SYSTEM
-              value: "jaeger"
+              value: "opentelemetry"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -118,7 +134,7 @@ spec:
     spec:
       containers:
         - name: java-kafka-consumer
-          image: quay.io/strimzi-examples/java-kafka-consumer:latest
+          image: docker.io/kliberti/java-kafka-consumer:latest
           env:
             - name: BOOTSTRAP_SERVERS
               value: my-cluster-kafka-bootstrap:9092
@@ -138,5 +154,13 @@ spec:
               value: const
             - name: JAEGER_SAMPLER_PARAM
               value: "1"
+            - name: OTEL_SERVICE_NAME
+              value: kafka-otel
+            - name: OTEL_TRACES_EXPORTER
+              value: jaeger
+            - name: OTEL_METRICS_EXPORTER
+              value: none
+            - name: OTEL_EXPORTER_JAEGER_ENDPOINT
+              value: http://my-jaeger-collector:14250
             - name: TRACING_SYSTEM
-              value: "jaeger"
+              value: "opentelemetry"

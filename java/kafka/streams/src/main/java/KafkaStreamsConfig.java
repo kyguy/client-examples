@@ -10,7 +10,6 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import strimzi.io.TracingSystem;
 
 import java.util.Properties;
 import java.util.StringTokenizer;
@@ -35,8 +34,6 @@ public class KafkaStreamsConfig {
     private final String additionalConfig;
     private final String saslLoginCallbackClass = "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler";
     private final TracingSystem tracingSystem;
-    private static final String DEFAULT_TRACING_SYSTEM = null;
-
 
     public KafkaStreamsConfig(String bootstrapServers, String applicationId, String sourceTopic, String targetTopic,
                               int commitIntervalMs, String sslTruststoreCertificates, String sslKeystoreKey, String sslKeystoreCertificateChain,

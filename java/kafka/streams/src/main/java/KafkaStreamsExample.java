@@ -19,7 +19,6 @@ import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import strimzi.io.TracingSystem;
 
 import java.util.Properties;
 
@@ -46,10 +45,7 @@ public class KafkaStreamsExample {
         KafkaStreams streams;
 
         TracingSystem tracingSystem = config.getTracingSystem();
-
-        log.info(" ======= DEV VERSION {} ==========", 1.0 );
-
-        if (tracingSystem != null) {
+        if (tracingSystem != TracingSystem.NONE) {
 
             if (tracingSystem == TracingSystem.JAEGER) {
                 Tracer tracer = Configuration.fromEnv().getTracer();
@@ -59,22 +55,13 @@ public class KafkaStreamsExample {
                 streams = new KafkaStreams(builder.build(), props, supplier);
             } else if (tracingSystem == TracingSystem.OPENTELEMETRY) {
 
-                //props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, this.bootstrapServers);
-                //props.put(StreamsConfig.APPLICATION_ID_CONFIG, this.applicationId);
-                props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-                props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
                 props.put(StreamsConfig.CONSUMER_PREFIX + ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
                 props.put(StreamsConfig.CONSUMER_PREFIX + ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
                 props.put(StreamsConfig.PRODUCER_PREFIX + ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
                 props.put(StreamsConfig.PRODUCER_PREFIX + ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
-                //props.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentelemetry.instrumentation.kafkaclients.TracingProducerInterceptor.class.getName());
-                //props.put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, io.opentelemetry.instrumentation.kafkaclients.TracingConsumerInterceptor.class.getName());
-
                 KafkaClientSupplier supplier = new TracingKafkaClientSupplier();
                 streams = new KafkaStreams(builder.build(), props, supplier);
-
-                log.info("OPENTELEMETRY TRACING USED + CONFIGURED, SERDES {} DESERIALIZER {} SERIALIZER {}", Serdes.String().getClass(), StringDeserializer.class.getName(), StringSerializer.class.getName());
             } else {
                 log.error("Error: TRACING_SYSTEM {} is not recognized or supported!", config.getTracingSystem());
                 streams = new KafkaStreams(builder.build(), props);

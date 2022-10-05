@@ -1,8 +1,7 @@
-package strimzi.io;
-
 public enum TracingSystem {
     JAEGER,
-    OPENTELEMETRY;
+    OPENTELEMETRY,
+    NONE;
 
     public static TracingSystem forValue(String value) {
         switch (value) {
@@ -11,7 +10,7 @@ public enum TracingSystem {
             case "opentelemetry":
                 return TracingSystem.OPENTELEMETRY;
             default:
-                return null;
+                return TracingSystem.NONE;
         }
     }
 }

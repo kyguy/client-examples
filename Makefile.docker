@@ -9,7 +9,7 @@
 
 DOCKERFILE_DIR     ?= ./
 DOCKER_REGISTRY    ?= docker.io
-DOCKER_ORG         ?= $(USER)
+DOCKER_ORG         ?= kliberti#$(USER)
 DOCKER_TAG         ?= latest
 DOCKER_VERSION_ARG ?= latest
 

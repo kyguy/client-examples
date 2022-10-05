@@ -9,7 +9,6 @@ import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import strimzi.io.TracingSystem;
 
 import java.util.Properties;
 import java.util.StringTokenizer;
@@ -36,7 +35,6 @@ public class KafkaConsumerConfig {
     private final String additionalConfig;
     private final String saslLoginCallbackClass = "io.strimzi.kafka.oauth.client.JaasClientOauthLoginCallbackHandler";
     private final TracingSystem tracingSystem;
-
 
     public KafkaConsumerConfig(String bootstrapServers, String topic, String groupId, String clientRack, Long messageCount,
                                String sslTruststoreCertificates, String sslKeystoreKey, String sslKeystoreCertificateChain,
@@ -226,6 +224,7 @@ public class KafkaConsumerConfig {
             ", oauthRefreshToken='" + oauthRefreshToken + '\'' +
             ", oauthTokenEndpointUri='" + oauthTokenEndpointUri + '\'' +
             ", additionalConfig='" + additionalConfig + '\'' +
+            ", tracingSystem='" + tracingSystem + '\'' +
             '}';
     }
 }

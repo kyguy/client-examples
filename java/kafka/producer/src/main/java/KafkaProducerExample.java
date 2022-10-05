@@ -14,7 +14,6 @@ import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
-import strimzi.io.TracingSystem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +34,7 @@ public class KafkaProducerExample {
         List<Header> headers = null;
 
         TracingSystem tracingSystem = config.getTracingSystem();
-        if (tracingSystem != null) {
+        if (tracingSystem != TracingSystem.NONE) {
 
             if (tracingSystem == TracingSystem.JAEGER) {
                 Tracer tracer = Configuration.fromEnv().getTracer();
