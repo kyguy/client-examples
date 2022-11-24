@@ -5,17 +5,15 @@
 
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 
 
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
 
 import static java.util.Map.entry;
-import static org.apache.kafka.common.requests.DeleteAclsResponse.log;
 
 public class KafkaConsumerConfig {
     private static final long DEFAULT_MESSAGES_COUNT = 10;
@@ -27,20 +25,18 @@ public class KafkaConsumerConfig {
     private final TracingSystem tracingSystem;
     private final String additionalConfig;
 
-    private static final Map<String, String> DEFAULT_MAP = Map.ofEntries(
-            entry(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer"),
-            entry(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer"),
-            entry(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL"),
-            entry(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM")
-            // entry(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "PEM")
-         //   entry(SaslConfigs.SASL_JAAS_CONFIG, "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required"),
-          //  entry(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL"),
-         //   entry(SaslConfigs.SASL_MECHANISM, "OAUTHBEARER")
-          //  entry(SaslConfigs.SASL_MECHANISM, "PLAIN")
+    private static final Map<String, String> DEFAULT_PROPERTIES = Map.ofEntries(
+        entry(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer"),
+        entry(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
     );
 
-    private static final Set<String> CA_CERT_FIELDS = Set.of(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG);
-    private static final Set<String> USER_CERT_FIELDS = Set.of(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, SslConfigs.SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG, SslConfigs.SSL_KEYSTORE_KEY_CONFIG);
+    private static final Map<String, String> DEFAULT_TRUSTSTORE_CONFIGS = Map.ofEntries(
+        entry(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL"),
+        entry(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "PEM"));
+
+    private static final Map<String, String> DEFAULT_KEYSTORE_CONFIGS = Map.ofEntries(
+        entry(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SSL"),
+        entry(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "PEM"));
 
     public KafkaConsumerConfig(String topic, Long messageCount, TracingSystem tracingSystem, String additionalConfig) {
         this.topic = topic;
@@ -58,50 +54,35 @@ public class KafkaConsumerConfig {
         return new KafkaConsumerConfig(topic, messageCount, tracingSystem, additionalConfig);
     }
 
-    public static String convertEnvVarToPropertyKey(String propKey) {
-        propKey = propKey.substring(6).toLowerCase().replace("_", ".");
-        return propKey;
+    public static String convertEnvVarToPropertyKey(String envVar) {
+        System.out.println("ENV_VAR " + envVar);
+        return envVar.substring(6).toLowerCase().replace("_", ".");
     }
 
     public static Properties createProperties(KafkaConsumerConfig config) {
         Properties props = new Properties();
-        System.out.println("Printing translated key/value pairs");
-        Map<String, String> envVars = System.getenv();
-        for (Map.Entry<String, String> entry : envVars.entrySet()) {
-            if (entry.getKey().contains("KAFKA")) {
-                String key = convertEnvVarToPropertyKey(entry.getKey());
-                String value = entry.getValue();
-                System.out.println("key: " + key + " value: " + value);
-                props.put(key, value);
-            }
-        }
-        System.out.println("Trap 0 " + DEFAULT_MAP);
-        for (Map.Entry<String, String> entry : DEFAULT_MAP.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-            System.out.println("Trap 1 key: " + key + " value: " + value);
 
-            if (props.get(key) == null) {
-                if (CA_CERT_FIELDS.contains(key) && props.get("ca.cert") != null) {
-                    props.put(key, value);
-                }
-                else if (USER_CERT_FIELDS.contains(key) && props.get("user.cert") != null) {
-                    props.put(key, value);
-                } else {
-                    props.put(key, value);
-                    System.out.println("Trap 2 key: " + key + " value: " + value);
-                }
-            }
+        Map<String, String> userConfigs = System.getenv()
+                .entrySet()
+                .stream()
+                .filter(map -> map.getKey().startsWith("KAFKA_"))
+                .collect(Collectors.toMap(map -> convertEnvVarToPropertyKey(map.getKey()), map -> map.getValue()));
+
+        // Set default configurations
+        props.putAll(DEFAULT_PROPERTIES);
+
+        if ( userConfigs.containsKey(SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG) ) {
+            props.putAll(DEFAULT_TRUSTSTORE_CONFIGS);
         }
 
-/*
-
-        Properties additionalProps = new Properties();
-        for (Map.Entry<String, String> entry : DEFAULT_MAP.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-        additionalProps.put(key, value);
+        if ( userConfigs.containsKey(SslConfigs.SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG)
+          && userConfigs.containsKey(SslConfigs.SSL_KEYSTORE_KEY_CONFIG) ) {
+            props.putAll(DEFAULT_KEYSTORE_CONFIGS);
         }
+
+        // Set user provided configurations overriding any overlapping default configurations
+        props.putAll(userConfigs);
+
         if (!config.getAdditionalConfig().isEmpty()) {
             StringTokenizer tok = new StringTokenizer(config.getAdditionalConfig(), System.lineSeparator());
             while (tok.hasMoreTokens()) {
@@ -112,11 +93,11 @@ public class KafkaConsumerConfig {
                 }
                 String key = record.substring(0, endIndex);
                 String value = record.substring(endIndex + 1);
-                additionalProps.put(key.trim(), value.trim());
+                props.put(key.trim(), value.trim());
 
             }
         }
-
+        /*
         if ((config.getOauthAccessToken() != null)
                 || (config.getOauthTokenEndpointUri() != null && config.getOauthClientId() != null && config.getOauthRefreshToken() != null)
                 || (config.getOauthTokenEndpointUri() != null && config.getOauthClientId() != null && config.getOauthClientSecret() != null))    {
@@ -128,7 +109,6 @@ public class KafkaConsumerConfig {
                 props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, config.saslLoginCallbackClass);
             }
         }
-
 
         props.putAll(additionalProps);*/
         return props;
@@ -193,22 +173,3 @@ public class KafkaConsumerConfig {
         System.out.println("These are the props: " + props);
     }
 }
-
-
-// TODO add specific defaults to props object
-               /* if (props.get("ca.cert") != null && (
-                        key == CommonClientConfigs.SECURITY_PROTOCOL_CONFIG
-                                || key == SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG
-                                || key == SslConfigs.SSL_TRUSTSTORE_CERTIFICATES_CONFIG)) {
-                    props.put(key, value);
-                }*/
-  /*              // TODO add specific defaults to props object
-                if (props.get("user.cert") != null && (
-                        key == CommonClientConfigs.SECURITY_PROTOCOL_CONFIG
-                                || key == SslConfigs.SSL_KEYSTORE_TYPE_CONFIG
-                                || key == SslConfigs.SSL_KEYSTORE_CERTIFICATE_CHAIN_CONFIG
-                                || key == SslConfigs.SSL_KEYSTORE_KEY_CONFIG)) {
-                    props.put(key, value);
-                }
-            }
-            */
