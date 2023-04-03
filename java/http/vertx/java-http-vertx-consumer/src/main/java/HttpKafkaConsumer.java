@@ -22,6 +22,7 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
@@ -59,7 +60,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
     }
 
     @Override
-    public void start(Future<Void> startFuture) throws Exception {
+    public void start(Promise<Void> startFuture) throws Exception {
         log.info("HTTP Kafka consumer starting with config {}", this.config);
 
         WebClientOptions options = new WebClientOptions()
@@ -84,7 +85,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
     }
 
     @Override
-    public void stop(Future<Void> stopFuture) throws Exception {
+    public void stop(Promise<Void> stopFuture) throws Exception {
         log.info("HTTP Kafka consumer stopping");
         if (this.consumer != null) {
             this.vertx.cancelTimer(this.pollTimer);
@@ -96,8 +97,8 @@ public class HttpKafkaConsumer extends AbstractVerticle {
         }
     }
 
-    private Future<CreatedConsumer> createConsumer() {
-        Future<CreatedConsumer> fut = Future.future();
+    private Promise<CreatedConsumer> createConsumer() {
+        Promise<CreatedConsumer> fut = Promise.promise();
 
         JsonObject json = new JsonObject()
             .put("format", "json");
@@ -128,8 +129,8 @@ public class HttpKafkaConsumer extends AbstractVerticle {
         return fut;
     }
 
-    private Future<Void> subscribe(CreatedConsumer consumer, String topic) {
-        Future<Void> fut = Future.future();
+    private Promise<Void> subscribe(CreatedConsumer consumer, String topic) {
+        Promise<Void> fut = Promise.promise();
 
         JsonObject topics = new JsonObject()
             .put("topics", new JsonArray().add(topic));
@@ -154,8 +155,8 @@ public class HttpKafkaConsumer extends AbstractVerticle {
         return fut;
     }
 
-    private Future<List<ConsumerRecord>> poll() {
-        Future<List<ConsumerRecord>> fut = Future.future();        
+    private Promise<List<ConsumerRecord>> poll() {
+        Promise<List<ConsumerRecord>> fut = Promise.promise();
 
         log.info("Poll ...");
         this.client.get(this.consumer.getBaseUri() + "/records?timeout=" + this.config.getPollTimeout())
@@ -222,8 +223,8 @@ public class HttpKafkaConsumer extends AbstractVerticle {
         return fut;
     }
 
-    private Future<Void> deleteConsumer() {
-        Future<Void> fut = Future.future();
+    private Promise<Void> deleteConsumer() {
+        Promise<Void> fut = Promise.promise();
 
         this.client.delete(this.consumer.getBaseUri())
             .putHeader(HttpHeaderNames.CONTENT_TYPE.toString(), "application/vnd.kafka.v2+json")
