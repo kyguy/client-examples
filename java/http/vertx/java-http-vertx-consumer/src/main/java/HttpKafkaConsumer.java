@@ -16,13 +16,10 @@ import io.opentracing.propagation.Format;
 import io.opentracing.propagation.TextMapAdapter;
 import io.opentracing.tag.Tags;
 import io.opentracing.util.GlobalTracer;
-import io.vertx.core.MultiMap;
+import io.vertx.core.*;
 
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
@@ -60,7 +57,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
     }
 
     @Override
-    public void start(Promise<Void> startFuture) throws Exception {
+    public void start(Promise<Void> startPormise) throws Exception {
         log.info("HTTP Kafka consumer starting with config {}", this.config);
 
         WebClientOptions options = new WebClientOptions()
@@ -69,31 +66,34 @@ public class HttpKafkaConsumer extends AbstractVerticle {
                 .setPipelining(this.config.isPipelining())
                 .setPipeliningLimit(this.config.getPipeliningLimit());
         this.client = WebClient.create(vertx, options);
-        
+
+        //       this.createConsumer().
+        //        .compose(consumer -> this.subscribe(consumer, this.config.getTopic()))
+
         this.createConsumer()
         .compose(consumer -> this.subscribe(consumer, this.config.getTopic()))
         .compose(v -> {
             this.pollTimer = vertx.setPeriodic(this.config.getPollInterval(), t -> {
-                this.poll().setHandler(ar -> {
+                this.poll().future().onComplete(ar -> {
                     if (ar.succeeded()) {
                         log.info("Received {}", ar.result());
                     }
                 });
             });
-            startFuture.complete();
-        }, startFuture);
+            startPormise.complete();
+        }, startPormise);
     }
 
     @Override
-    public void stop(Promise<Void> stopFuture) throws Exception {
+    public void stop(Promise<Void> stopPromise) throws Exception {
         log.info("HTTP Kafka consumer stopping");
         if (this.consumer != null) {
             this.vertx.cancelTimer(this.pollTimer);
-            this.deleteConsumer().setHandler(ar -> {
-                stopFuture.complete();
+            this.deleteConsumer().future().onComplete(ar -> {
+                stopPromise.complete();
             });
         } else {
-            stopFuture.complete();
+            stopPromise.complete();
         }
     }
 
