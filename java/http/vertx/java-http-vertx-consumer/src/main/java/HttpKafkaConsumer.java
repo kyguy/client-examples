@@ -67,11 +67,11 @@ public class HttpKafkaConsumer extends AbstractVerticle {
                 .setPipeliningLimit(this.config.getPipeliningLimit());
         this.client = WebClient.create(vertx, options);
 
-        //       this.createConsumer().
-        //        .compose(consumer -> this.subscribe(consumer, this.config.getTopic()))
-
         this.createConsumer()
-        .compose(consumer -> this.subscribe(consumer, this.config.getTopic()))
+        .compose(consumer -> {
+            this.subscribe(consumer, this.config.getTopic());
+            return null;
+        })
         .compose(v -> {
             this.pollTimer = vertx.setPeriodic(this.config.getPollInterval(), t -> {
                 this.poll().future().onComplete(ar -> {
@@ -81,7 +81,8 @@ public class HttpKafkaConsumer extends AbstractVerticle {
                 });
             });
             startPormise.complete();
-        }, startPormise);
+            return null;
+        });
     }
 
     @Override
@@ -97,7 +98,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
         }
     }
 
-    private Promise<CreatedConsumer> createConsumer() {
+    private Future<CreatedConsumer> createConsumer() {
         Promise<CreatedConsumer> fut = Promise.promise();
 
         JsonObject json = new JsonObject()
@@ -126,7 +127,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
                     fut.fail(ar.cause());
                 }
             });
-        return fut;
+        return fut.future();
     }
 
     private Promise<Void> subscribe(CreatedConsumer consumer, String topic) {
