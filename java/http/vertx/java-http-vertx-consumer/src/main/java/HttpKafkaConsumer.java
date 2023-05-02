@@ -68,10 +68,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
         this.client = WebClient.create(vertx, options);
 
         this.createConsumer()
-        .compose(consumer -> {
-            this.subscribe(consumer, this.config.getTopic());
-            return null;
-        })
+        .compose(consumer -> this.subscribe(consumer, this.config.getTopic()))
         .compose(v -> {
             this.pollTimer = vertx.setPeriodic(this.config.getPollInterval(), t -> {
                 this.poll().future().onComplete(ar -> {
@@ -99,7 +96,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
     }
 
     private Future<CreatedConsumer> createConsumer() {
-        Promise<CreatedConsumer> fut = Promise.promise();
+        Promise<CreatedConsumer> promise = Promise.promise();
 
         JsonObject json = new JsonObject()
             .put("format", "json");
@@ -107,7 +104,7 @@ public class HttpKafkaConsumer extends AbstractVerticle {
         if (config.getClientId() != null) {
             json.put("name", config.getClientId());
         }
-
+        vertx.createSharedWorkerExecutor("kubernetes-ops-pool").executeBlocking(future -> {
         this.client.post(this.config.getEndpointPrefix() + "/consumers/" + this.config.getGroupid())
             .putHeader(HttpHeaderNames.CONTENT_LENGTH.toString(), String.valueOf(json.toBuffer().length()))
             .putHeader(HttpHeaderNames.CONTENT_TYPE.toString(), "application/vnd.kafka.v2+json")
@@ -119,109 +116,116 @@ public class HttpKafkaConsumer extends AbstractVerticle {
                         JsonObject body = response.body();
                         this.consumer = new CreatedConsumer(body.getString("instance_id"), body.getString("base_uri"));
                         log.info("Consumer created as {}", this.consumer);
-                        fut.complete(consumer);
+                        future.complete(consumer);
                     } else {
-                        fut.fail(new RuntimeException("Got HTTP status code " + response.statusCode()));
+                        future.fail(new RuntimeException("Got HTTP status code " + response.statusCode()));
                     }
                 } else {
-                    fut.fail(ar.cause());
+                    future.fail(ar.cause());
                 }
             });
-        return fut.future();
+        }, true, promise);
+
+        return promise.future();
     }
 
-    private Promise<Void> subscribe(CreatedConsumer consumer, String topic) {
-        Promise<Void> fut = Promise.promise();
+    private Future<Void> subscribe(CreatedConsumer consumer, String topic) {
+        Promise<Void> promise = Promise.promise();
 
         JsonObject topics = new JsonObject()
             .put("topics", new JsonArray().add(topic));
-        
-        this.client.post(consumer.getBaseUri() + "/subscription")
-            .putHeader(HttpHeaderNames.CONTENT_LENGTH.toString(), String.valueOf(topics.toBuffer().length()))
-            .putHeader(HttpHeaderNames.CONTENT_TYPE.toString(), "application/vnd.kafka.v2+json")
-            .as(BodyCodec.jsonObject())
-            .sendJsonObject(topics, ar -> {
-                if (ar.succeeded()) {
-                    HttpResponse<JsonObject> response = ar.result();
-                    if (response.statusCode() == HttpResponseStatus.NO_CONTENT.code()) {
-                        log.info("Subscribed to {}", topic);
-                        fut.complete();
-                    } else {
-                        fut.fail(new RuntimeException("Got HTTP status code " + response.statusCode()));
-                    }
-                } else {
-                    fut.fail(ar.cause());
-                }
-            });
-        return fut;
+
+        vertx.createSharedWorkerExecutor("kubernetes-ops-pool").executeBlocking(future -> {
+            this.client.post(consumer.getBaseUri() + "/subscription")
+                    .putHeader(HttpHeaderNames.CONTENT_LENGTH.toString(), String.valueOf(topics.toBuffer().length()))
+                    .putHeader(HttpHeaderNames.CONTENT_TYPE.toString(), "application/vnd.kafka.v2+json")
+                    .as(BodyCodec.jsonObject())
+                    .sendJsonObject(topics, ar -> {
+                        if (ar.succeeded()) {
+                            HttpResponse<JsonObject> response = ar.result();
+                            if (response.statusCode() == HttpResponseStatus.NO_CONTENT.code()) {
+                                log.info("Subscribed to {}", topic);
+                                future.complete();
+                            } else {
+                                future.fail(new RuntimeException("Got HTTP status code " + response.statusCode()));
+                            }
+                        } else {
+                            future.fail(ar.cause());
+                        }
+                    });
+        }, true, promise);
+
+        return promise.future();
     }
 
     private Promise<List<ConsumerRecord>> poll() {
-        Promise<List<ConsumerRecord>> fut = Promise.promise();
+        Promise<List<ConsumerRecord>> promise = Promise.promise();
 
-        log.info("Poll ...");
-        this.client.get(this.consumer.getBaseUri() + "/records?timeout=" + this.config.getPollTimeout())
-            .putHeader(HttpHeaderNames.ACCEPT.toString(), "application/vnd.kafka.json.v2+json")
-            .as(BodyCodec.jsonArray())
-            .send(ar -> {
-                if (ar.succeeded()) {
-                    HttpResponse<JsonArray> response = ar.result();
-                    if (response.statusCode() == HttpResponseStatus.OK.code()) {
+        vertx.createSharedWorkerExecutor("kubernetes-ops-pool").executeBlocking(future -> {
+            log.info("Poll ...");
+            this.client.get(this.consumer.getBaseUri() + "/records?timeout=" + this.config.getPollTimeout())
+                    .putHeader(HttpHeaderNames.ACCEPT.toString(), "application/vnd.kafka.json.v2+json")
+                    .as(BodyCodec.jsonArray())
+                    .send(ar -> {
+                        if (ar.succeeded()) {
+                            HttpResponse<JsonArray> response = ar.result();
+                            if (response.statusCode() == HttpResponseStatus.OK.code()) {
 
-                        Tracer tracer = GlobalTracer.get();
+                                Tracer tracer = GlobalTracer.get();
 
-                        MultiMap rawHeaders = response.headers();
-                        final Map<String, String> headers = new HashMap<>();
-                        for (Map.Entry<String, String> header : rawHeaders) {
-                            headers.put(header.getKey(), header.getValue());
-                        }
+                                MultiMap rawHeaders = response.headers();
+                                final Map<String, String> headers = new HashMap<>();
+                                for (Map.Entry<String, String> header : rawHeaders) {
+                                    headers.put(header.getKey(), header.getValue());
+                                }
 
-                        String operation = "poll";
-                        Tracer.SpanBuilder spanBuilder;
-                        try {
-                            SpanContext parentSpan = tracer.extract(Format.Builtin.HTTP_HEADERS, new TextMapAdapter(headers));
-                            if (parentSpan == null) {
-                                spanBuilder = tracer.buildSpan(operation);
+                                String operation = "poll";
+                                Tracer.SpanBuilder spanBuilder;
+                                try {
+                                    SpanContext parentSpan = tracer.extract(Format.Builtin.HTTP_HEADERS, new TextMapAdapter(headers));
+                                    if (parentSpan == null) {
+                                        spanBuilder = tracer.buildSpan(operation);
+                                    } else {
+                                        spanBuilder = tracer.buildSpan(operation).asChildOf(parentSpan);
+                                    }
+                                } catch (IllegalArgumentException e) {
+                                    spanBuilder = tracer.buildSpan(operation);
+                                }
+
+                                Span span = spanBuilder.withTag(Tags.SPAN_KIND.getKey(), Tags.SPAN_KIND_SERVER).start();
+
+                                List<ConsumerRecord> list = new ArrayList<>();
+                                response.body().forEach(obj -> {
+                                    JsonObject json = (JsonObject) obj;
+                                    list.add(new ConsumerRecord(
+                                            json.getString("topic"),
+                                            json.getValue("key"),
+                                            json.getValue("value"),
+                                            json.getInteger("partition"),
+                                            json.getLong("offset"))
+                                    );
+                                });
+                                this.messagesReceived += list.size();
+
+                                span.finish();
+
+                                promise.complete(list);
                             } else {
-                                spanBuilder = tracer.buildSpan(operation).asChildOf(parentSpan);
+                                promise.fail(new RuntimeException("Got HTTP status code " + response.statusCode()));
                             }
-                        } catch (IllegalArgumentException e) {
-                            spanBuilder = tracer.buildSpan(operation);
+                        } else {
+                            promise.fail(ar.cause());
                         }
 
-                        Span span = spanBuilder.withTag(Tags.SPAN_KIND.getKey(), Tags.SPAN_KIND_SERVER).start();
-
-                        List<ConsumerRecord> list = new ArrayList<>();
-                        response.body().forEach(obj -> {
-                            JsonObject json = (JsonObject) obj;
-                            list.add(new ConsumerRecord(
-                                json.getString("topic"), 
-                                json.getValue("key"),
-                                json.getValue("value"),
-                                json.getInteger("partition"), 
-                                json.getLong("offset"))
-                                );
-                        });
-                        this.messagesReceived += list.size();
-
-                        span.finish();
-
-                        fut.complete(list);
-                    } else {
-                        fut.fail(new RuntimeException("Got HTTP status code " + response.statusCode()));
-                    }
-                } else {
-                    fut.fail(ar.cause());
-                }
-
-                if (this.config.getMessageCount().isPresent() &&
-                    this.messagesReceived >= this.config.getMessageCount().get()) {
-                        // signal to main thread that all messages are received, application can exit
-                        this.messagesReceivedLatch.countDown();
-                        log.info("All messages received");
-                }
-            });
-        return fut;
+                        if (this.config.getMessageCount().isPresent() &&
+                                this.messagesReceived >= this.config.getMessageCount().get()) {
+                            // signal to main thread that all messages are received, application can exit
+                            this.messagesReceivedLatch.countDown();
+                            log.info("All messages received");
+                        }
+                    });
+        }, true, promise);
+        return promise;
     }
 
     private Promise<Void> deleteConsumer() {
